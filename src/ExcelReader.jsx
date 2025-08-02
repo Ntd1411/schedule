@@ -176,6 +176,9 @@ export default function ExcelReader() {
                     />
                     <Form.Text className="text-muted">
                       Hỗ trợ định dạng: .xlsx, .xls
+                    </Form.Text> <br />
+                    <Form.Text className="text-muted">
+                      Lưu ý: Chọn file thời khóa biểu sinh viên theo ngày học
                     </Form.Text>
                   </Form.Group>
 
