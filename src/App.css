@@ -277,17 +277,23 @@
 }
 
 .fade-in-up {
-  animation: fadeInUp 0.4s ease-out;
+  animation: fadeInUp 0.7s ease-out;
 }
 
 @keyframes fadeInUp {
-  from {
+   0% {
+    transform: scale(0.3);
     opacity: 0;
-    transform: translateY(10px);
   }
-  to {
+  50% {
+    transform: scale(1.05);
     opacity: 1;
-    transform: translateY(0);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 

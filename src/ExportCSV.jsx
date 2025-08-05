@@ -143,16 +143,22 @@ export default function ExportCSV({ data }) {
             </div>
             
             {/* Toast thông báo */}
-            <ToastContainer position="top-end" className="p-3" style={{ zIndex: 1060 }}>
+            <ToastContainer position="top-end" className="p-3 mt-3 position-fixed" style={{ zIndex: 1060 }}>
                 <Toast 
                     show={showToast} 
                     onClose={() => setShowToast(false)}
-                    delay={3000}
+                    delay={2000}
                     autohide
-                    bg={toastType}
+                    bg='light'
                 >
-                    <Toast.Header closeButton={false}>
-                        <strong className="me-auto">
+                    <Toast.Header 
+                        style={{
+                            borderBottom: toastType === 'success' 
+                                ? '5px solid rgba(4, 195, 26, 1)' 
+                                : '5px solid rgba(220, 53, 70, 1)'
+                        }}
+                    >
+                        <strong className="me-auto fs-6">
                             {toastType === 'success' ? 
                                 <i className="bi bi-check-circle me-2"></i> : 
                                 <i className="bi bi-exclamation-circle me-2"></i>
@@ -160,7 +166,7 @@ export default function ExportCSV({ data }) {
                             {toastType === 'success' ? 'Thành công' : 'Lỗi'}
                         </strong>
                     </Toast.Header>
-                    <Toast.Body className={toastType === 'success' ? 'text-white' : ''}>
+                    <Toast.Body>
                         {toastMessage}
                     </Toast.Body>
                 </Toast>

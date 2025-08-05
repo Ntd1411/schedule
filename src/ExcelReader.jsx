@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import * as XLSX from 'xlsx';
 import { Container, Row, Col, Card, Table, Button, Alert, Form, Badge } from 'react-bootstrap';
@@ -128,13 +128,6 @@ export default function ExcelReader({ onDataLoaded }) {
     return timePeriod[period] || "";
   }
 
-  const scheduleData = useMemo(() => {
-    return getScheduleData(data);
-  }, [data]);
-
-  // Truy cập scheduleByDate
-  const scheduleByDate = scheduleData.scheduleByDate;
-
   const generateNotificationId = (dateKey, code, index) => {
     return parseInt(`${Math.abs(hashString(dateKey + code + index))}`.slice(0, 9));
   };
@@ -148,27 +141,33 @@ export default function ExcelReader({ onDataLoaded }) {
     return hash;
   };
 
-  const scheduleAllNotification = async () => {
+  const scheduleAllNotification = async (scheduleByDateData) => {
     try {
-      // Kiểm tra quyền thông báo một lần
+      // console.log('scheduleAllNotification received data:', scheduleByDateData);
+      
+      if (!scheduleByDateData || Object.keys(scheduleByDateData).length === 0) {
+        throw new Error('Không có dữ liệu lịch học để lên lịch thông báo');
+      }
+
+      // Kiểm tra quyền thông báo
       let status = await LocalNotifications.checkPermissions();
       if (status.display === 'prompt') {
         status = await LocalNotifications.requestPermissions();
       }
 
       if (status.display !== 'granted') {
-        console.error('Quyền thông báo bị từ chối');
-        alert('Vui lòng cấp quyền thông báo để nhận được nhắc nhở môn học');
-        return;
+        throw new Error('Quyền thông báo bị từ chối. Vui lòng cấp quyền để nhận thông báo');
       }
 
-      // Xóa tất cả thông báo cũ trước khi lên lịch mới
+      // Xóa thông báo cũ
       await clearNotification();
 
       let scheduledCount = 0;
       const currentDate = new Date();
 
-      for (const [dateKey, schedules] of Object.entries(scheduleByDate)) {
+      console.log('Scheduling notifications for:', scheduleByDateData);
+
+      for (const [dateKey, schedules] of Object.entries(scheduleByDateData)) {
         for (const [index, schedule] of schedules.entries()) {
           try {
             const startTime = getStartTimeByPeriod(schedule.period);
@@ -204,7 +203,7 @@ export default function ExcelReader({ onDataLoaded }) {
       }
 
       if (scheduledCount > 0) {
-        alert(`Đã lên lịch ${scheduledCount} thông báo cho các môn học sắp tới`);
+        // alert(`Đã lên lịch ${scheduledCount} thông báo cho các môn học sắp tới`);
       } else {
         alert('Không có môn học nào cần lên lịch thông báo');
       }
@@ -214,15 +213,31 @@ export default function ExcelReader({ onDataLoaded }) {
     }
   };
 
+  const processExcelData = async (jsonData) => {
+    // Xử lý và kiểm tra dữ liệu
+    const processedData = getScheduleData(jsonData);
+    // console.log('Processed data:', processedData);
+    
+    if (!processedData || !processedData.scheduleByDate) {
+      throw new Error('Không thể xử lý dữ liệu thời khóa biểu');
+    }
+
+    const schedules = processedData.scheduleByDate;
+    if (Object.keys(schedules).length === 0) {
+      throw new Error('Không tìm thấy lịch học trong dữ liệu');
+    }
+
+    return processedData;
+  };
+
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
-
     if (!file) return;
 
     setLoading(true);
     setError('');
     setFileName(file.name);
-    setIsRestoredData(false); // Reset trạng thái khôi phục khi upload file mới
+    setIsRestoredData(false);
 
     const reader = new FileReader();
     reader.readAsBinaryString(file);
@@ -231,42 +246,57 @@ export default function ExcelReader({ onDataLoaded }) {
       try {
         const binaryStr = e.target.result;
         const workbook = XLSX.read(binaryStr, { type: 'binary' });
-
-        // Lấy sheet đầu tiên
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
 
-        // Chuyển sheet thành JSON
+        // Parse Excel data với các tùy chọn
         const jsonData = XLSX.utils.sheet_to_json(sheet, {
           header: 10,
-          range: 9, // Bỏ qua 3 dòng đầu
+          range: 9,
+          blankrows: false,
+          defval: ''
         });
-        // console.log(jsonData);
 
+        // console.log('Raw Excel data:', jsonData);
 
-        setData(jsonData);
-        setLoading(false);
-
-        // Lưu dữ liệu vào localStorage
-        saveToLocalStorage(jsonData, file.name);
-
-        // Callback để thông báo data đã được load từ upload
-        if (onDataLoadedRef.current) {
-          onDataLoadedRef.current(jsonData, true); // true = isFromUpload
+        if (!Array.isArray(jsonData) || jsonData.length === 0) {
+          throw new Error('Không tìm thấy dữ liệu trong file Excel');
         }
-        await clearNotification();
-        await scheduleAllNotification();
-        // Tự động thu gọn sau khi upload thành công
-        // setShowFileSection(false);
+
+        // Xử lý dữ liệu
+        const processedData = await processExcelData(jsonData);
+        
+        // Cập nhật state và storage
+        setData(jsonData);
+        saveToLocalStorage(jsonData, file.name);
+        
+        if (onDataLoadedRef.current) {
+          onDataLoadedRef.current(jsonData, true);
+        }
+
+        // Lên lịch thông báo sau khi đã xử lý xong dữ liệu
+        await scheduleAllNotification(processedData.scheduleByDate);
+        
+        setLoading(false);
       } catch (error) {
-        console.error('Error reading Excel file:', error);
-        setError('Có lỗi khi đọc file Excel. Vui lòng kiểm tra định dạng file.');
+        console.error('Error processing file:', error);
+        let errorMessage = 'Có lỗi khi xử lý file Excel.';
+        
+        if (error.message.includes('Không tìm thấy dữ liệu')) {
+          errorMessage = 'File không chứa dữ liệu thời khóa biểu hợp lệ.';
+        } else if (error.message.includes('Không thể xử lý')) {
+          errorMessage = 'Không thể xử lý được định dạng thời khóa biểu.';
+        } else if (error.message.includes('Quyền thông báo')) {
+          errorMessage = error.message;
+        }
+        
+        setError(errorMessage);
         setLoading(false);
       }
     };
 
     reader.onerror = () => {
-      setError('Có lỗi khi đọc file.');
+      setError('Không thể đọc file. Vui lòng thử lại.');
       setLoading(false);
     };
   };

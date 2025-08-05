@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card, Table, Badge, Row, Col, Modal, Button, Dropdown, ButtonGroup, CardHeader } from 'react-bootstrap';
 import getScheduleData from './getScheduleData';
+import { Capacitor } from '@capacitor/core';
 
 const ScheduleView = ({ data }) => {
   const [selectedDate, setSelectedDate] = useState({
@@ -350,18 +351,16 @@ const ScheduleView = ({ data }) => {
         <Col className='p-0'>
           <Card className='w-100 mb-0'>
             <Card.Header className="bg-dark text-white">
-              <div className="d-flex justify-content-between align-items-center">
-                <ButtonGroup size="sm">
+              <div className={Capacitor.isNativePlatform() ? 'text-center' : 'd-flex justify-content-between align-items-center'}>
+                {!Capacitor.isNativePlatform() ? <ButtonGroup size="sm">
                   <Button variant="dark" onClick={goToPreviousMonth} disabled={isTransitioning}>
                     ‹ Trước
                   </Button>
-                </ButtonGroup>
-
+                </ButtonGroup> : ''}
                 <h5 className="mb-0">{currentMonth + 1}/{currentYear}</h5>
-
-                <Button size='sm' variant="dark" onClick={goToNextMonth} disabled={isTransitioning}>
+                {!Capacitor.isNativePlatform() ? <Button size='sm' variant="dark" onClick={goToNextMonth} disabled={isTransitioning}>
                   Sau ›
-                </Button>
+                </Button> : ''}
               </div>
             </Card.Header>
             <Card.Body className="p-0">
@@ -448,21 +447,21 @@ const ScheduleView = ({ data }) => {
               <Card.Body>
                 <Row>
                   <Col md={12}>
-                    <h6 className="text-danger" style={{fontSize : '0.9rem'}}>
+                    <h6 className="text-danger" style={{ fontSize: '0.9rem' }}>
                       <Badge bg="danger" className="me-2">{groupedItem.code}</Badge>
                       {groupedItem.subject} ({groupedItem.teacher})
                     </h6>
-                    
+
                   </Col>
                   {groupedItem.sessions.map((session, sessionIndex) => (
-                      <div key={sessionIndex} className="bg-light" style={{fontSize : '0.8rem'}}>
+                    <div key={sessionIndex} className="bg-light" style={{ fontSize: '0.8rem' }}>
                       <Col xs={12} md={6}>
-                            {session.period && (
-                              <div className="mb-1 text-muted"><strong>Thời gian:</strong> {session.period}, {session.room}</div>
-                            )}
-                          </Col>
-                      </div>
-                    ))}
+                        {session.period && (
+                          <div className="mb-1 text-muted"><strong>Thời gian:</strong> {session.period}, {session.room}</div>
+                        )}
+                      </Col>
+                    </div>
+                  ))}
                 </Row>
               </Card.Body>
             </Card>

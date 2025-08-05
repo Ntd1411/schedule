@@ -246,6 +246,13 @@ const AppLayout = () => {
             <i className="bi bi-calendar-check me-2"></i>
             Thời Khóa Biểu
           </Navbar.Brand>
+          <Button
+            style={{ backgroundColor: 'transparent', border: 'none', color: 'white' }}
+            onClick={() => handleSectionChange('schedule')}
+            className="me-2"
+          >
+           <i className="bi bi-calendar"></i>
+          </Button>
         </Container>
       </Navbar>
 
@@ -289,7 +296,7 @@ const AppLayout = () => {
             >
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <i className="bi bi-calendar3 me-2"></i>
+                  <i className="bi bi-filetype-csv"></i>
                   Xuất file csv
                   <small className="d-block text-muted">Tải về file csv</small>
                 </div>
@@ -332,19 +339,18 @@ const AppLayout = () => {
       )} */}
 
       {/* Success Toast */}
-      <ToastContainer position="top-end" className="p-3" style={{ zIndex: 1060 }}>
+      <ToastContainer position="top-end" className="p-3 mt-3 position-fixed" style={{ zIndex: 1060 }}>
         <Toast
           show={showSuccessToast}
           onClose={() => setShowSuccessToast(false)}
-          delay={4000}
+          delay={2000}
           autohide
-          bg="success"
-          className="text-white"
+          bg="light"
         >
-          <Toast.Header>
+          <Toast.Header style={{borderBottom: '5px solid rgba(4, 195, 26, 1)'}}>
             <strong className="mt-2 me-auto"> <i className="bi bi-check"></i>Thành công</strong>
           </Toast.Header>
-          <Toast.Body>{toastMessage}</Toast.Body>
+          <Toast.Body style={{color: 'dark'}}>{toastMessage}</Toast.Body>
         </Toast>
       </ToastContainer>
     </>
