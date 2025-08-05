@@ -33,8 +33,6 @@ const ScheduleView = ({ data }) => {
     return getScheduleData(data);
   }, [data]);
 
-
-
   // Tạo lịch tháng cho một tháng cụ thể
   const generateCalendarForMonth = (year, month) => {
     const today = new Date();

@@ -50,9 +50,8 @@ export default function getScheduleData (data){
     //   console.log(timeColumn);
 
       // Tìm cột tên môn học (thường là cột thứ 4)
-      const subjectColumn = Object.keys(row)[3] || Object.keys(row).find(key => 
-        key.toLowerCase().includes('tên') ||
-        key.toLowerCase().includes('môn')
+      const subjectColumn = Object.keys(row)[4] || Object.keys(row).find(key => 
+        key.toLowerCase().includes('lớp')
       );
 
       // Tìm cột mã học phần (thường là cột thứ 2)

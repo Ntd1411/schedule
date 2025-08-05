@@ -273,7 +273,7 @@ const AppLayout = () => {
             >
               <i className="bi bi-house-door me-2"></i>
               Trang chủ
-              <small className="d-block text-muted">Tải file Excel thời khóa biểu</small>
+              <small className="d-block text-muted">Tải lên file Excel thời khóa biểu</small>
             </Nav.Link>
 
             <Nav.Link
@@ -294,13 +294,8 @@ const AppLayout = () => {
               onClick={() => handleSectionChange('exportcsv')}
               style={{ cursor: 'pointer' }}
             >
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <i className="bi bi-filetype-csv"></i>
-                  Xuất file csv
+                  <i className="bi bi-filetype-csv"></i>  Xuất file csv
                   <small className="d-block text-muted">Tải về file csv</small>
-                </div>
-              </div>
             </Nav.Link>
 
             <Nav.Link
