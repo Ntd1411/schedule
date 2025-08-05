@@ -1,16 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import * as XLSX from 'xlsx';
 import { Container, Row, Col, Card, Table, Button, Alert, Form, Badge } from 'react-bootstrap';
-import ScheduleView from './ScheduleView';
+import getScheduleData from './getScheduleData';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
-export default function ExcelReader() {
+
+
+// xóa tất cả thông báo
+async function clearNotification() {
+  try {
+    const { notifications } = await LocalNotifications.getPending();
+    if (notifications && notifications.length > 0) {
+      for (const notification of notifications) {
+        try {
+          await LocalNotifications.cancel({
+            notifications: [{ id: notification.id }]
+          });
+        } catch (e) {
+          console.error('Lỗi khi xóa thông báo cụ thể:', e);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Lỗi khi lấy danh sách thông báo:', error);
+  }
+}
+
+
+
+export default function ExcelReader({ onDataLoaded }) {
   const [data, setData] = useState([]);
   const [fileName, setFileName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showFileSection, setShowFileSection] = useState(true);
   const [isRestoredData, setIsRestoredData] = useState(false);
+
+  // Sử dụng ref để tránh dependency hell
+  const onDataLoadedRef = useRef(onDataLoaded);
+  onDataLoadedRef.current = onDataLoaded;
 
   // Khóa lưu trữ trong localStorage
   const STORAGE_KEY = 'scheduleData';
@@ -26,32 +55,35 @@ export default function ExcelReader() {
         uploadDate: new Date().toISOString()
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-      console.log('Đã lưu dữ liệu vào localStorage');
+      // console.log('Đã lưu dữ liệu vào localStorage');
     } catch (error) {
       console.error('Lỗi khi lưu dữ liệu:', error);
     }
   };
 
   // Khôi phục dữ liệu từ localStorage
-  const loadFromLocalStorage = () => {
+  const loadFromLocalStorage = useCallback(() => {
     try {
       const savedData = localStorage.getItem(STORAGE_KEY);
       if (savedData) {
         const parsedData = JSON.parse(savedData);
-        setData(parsedData.data || []);
+        const loadedData = parsedData.data || [];
+        setData(loadedData);
         setFileName(parsedData.fileName || '');
         setIsRestoredData(true);
-        // Tự động thu gọn nếu có dữ liệu cũ
-        if (parsedData.data && parsedData.data.length > 0) {
-          setShowFileSection(false);
+
+        // Callback để thông báo data đã được load từ localStorage
+        if (onDataLoadedRef.current && loadedData.length > 0) {
+          onDataLoadedRef.current(loadedData, false); // false = không phải từ upload
         }
+
         return true;
       }
     } catch (error) {
       console.error('Lỗi khi khôi phục dữ liệu:', error);
     }
     return false;
-  };
+  }, []); // Không cần dependency vì sử dụng ref
 
   // Lấy thông tin thời gian lưu
   const getSavedDataInfo = () => {
@@ -70,24 +102,121 @@ export default function ExcelReader() {
     return null;
   };
 
-  // Xóa dữ liệu từ localStorage
-  const clearLocalStorage = () => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-      console.log('Đã xóa dữ liệu khỏi localStorage');
-    } catch (error) {
-      console.error('Lỗi khi xóa dữ liệu:', error);
-    }
-  };
+  // // Xóa dữ liệu từ localStorage
+  // const clearLocalStorage = () => {
+  //   try {
+  //     localStorage.removeItem(STORAGE_KEY);
+  //     console.log('Đã xóa dữ liệu khỏi localStorage');
+  //   } catch (error) {
+  //     console.error('Lỗi khi xóa dữ liệu:', error);
+  //   }
+  // };
 
   // Khôi phục dữ liệu khi component mount
   useEffect(() => {
     loadFromLocalStorage();
-  }, []);
+  }, [loadFromLocalStorage]);
+
+  const getStartTimeByPeriod = (period) => {
+    const timePeriod = {
+      "7:00 - 9:25": "7:00",
+      "9:35 - 12:00": "9:35",
+      "12:30 - 14:55": "12:30",
+      "15:05 - 17:00": "15:05",
+      "18:00 - 21:15": "18:00",
+    };
+    return timePeriod[period] || "";
+  }
+
+  const scheduleData = useMemo(() => {
+    return getScheduleData(data);
+  }, [data]);
+
+  // Truy cập scheduleByDate
+  const scheduleByDate = scheduleData.scheduleByDate;
+
+  const generateNotificationId = (dateKey, code, index) => {
+    return parseInt(`${Math.abs(hashString(dateKey + code + index))}`.slice(0, 9));
+  };
+
+  const hashString = (str) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
+  };
+
+  const scheduleAllNotification = async () => {
+    try {
+      // Kiểm tra quyền thông báo một lần
+      let status = await LocalNotifications.checkPermissions();
+      if (status.display === 'prompt') {
+        status = await LocalNotifications.requestPermissions();
+      }
+
+      if (status.display !== 'granted') {
+        console.error('Quyền thông báo bị từ chối');
+        alert('Vui lòng cấp quyền thông báo để nhận được nhắc nhở môn học');
+        return;
+      }
+
+      // Xóa tất cả thông báo cũ trước khi lên lịch mới
+      await clearNotification();
+
+      let scheduledCount = 0;
+      const currentDate = new Date();
+
+      for (const [dateKey, schedules] of Object.entries(scheduleByDate)) {
+        for (const [index, schedule] of schedules.entries()) {
+          try {
+            const startTime = getStartTimeByPeriod(schedule.period);
+            if (!startTime) continue;
+
+            const [hours, minutes] = startTime.split(':').map(Number);
+            const date = new Date(dateKey.split('/').reverse().join('-'));
+            date.setHours(hours, minutes, 0, 0);
+
+            // Chỉ lên lịch cho các thông báo trong tương lai
+            if (date <= currentDate) continue;
+
+            const notificationTime = new Date(date.getTime() - 15 * 60 * 1000);
+            const notificationID = generateNotificationId(dateKey, schedule.code, index);
+
+            await LocalNotifications.schedule({
+              notifications: [{
+                title: 'Môn học sắp tới',
+                body: `Môn ${schedule.subject} bắt đầu vào ${startTime} tại ${schedule.room}`,
+                id: notificationID,
+                schedule: { at: notificationTime },
+                smallIcon: 'ic_stat_notify',
+                sound: 'beep.wav',
+                ongoing: false
+              }]
+            });
+
+            scheduledCount++;
+          } catch (e) {
+            console.error('Lỗi khi lên lịch thông báo cụ thể:', e);
+          }
+        }
+      }
+
+      if (scheduledCount > 0) {
+        alert(`Đã lên lịch ${scheduledCount} thông báo cho các môn học sắp tới`);
+      } else {
+        alert('Không có môn học nào cần lên lịch thông báo');
+      }
+    } catch (error) {
+      console.error('Lỗi khi khởi tạo thông báo:', error);
+      alert('Có lỗi khi thiết lập thông báo: ' + error.message);
+    }
+  };
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
-    
+
     if (!file) return;
 
     setLoading(true);
@@ -98,7 +227,7 @@ export default function ExcelReader() {
     const reader = new FileReader();
     reader.readAsBinaryString(file);
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const binaryStr = e.target.result;
         const workbook = XLSX.read(binaryStr, { type: 'binary' });
@@ -108,16 +237,27 @@ export default function ExcelReader() {
         const sheet = workbook.Sheets[sheetName];
 
         // Chuyển sheet thành JSON
-        const jsonData = XLSX.utils.sheet_to_json(sheet);
+        const jsonData = XLSX.utils.sheet_to_json(sheet, {
+          header: 10,
+          range: 9, // Bỏ qua 3 dòng đầu
+        });
         // console.log(jsonData);
+
+
         setData(jsonData);
         setLoading(false);
-        
+
         // Lưu dữ liệu vào localStorage
         saveToLocalStorage(jsonData, file.name);
-        
+
+        // Callback để thông báo data đã được load từ upload
+        if (onDataLoadedRef.current) {
+          onDataLoadedRef.current(jsonData, true); // true = isFromUpload
+        }
+        await clearNotification();
+        await scheduleAllNotification();
         // Tự động thu gọn sau khi upload thành công
-        setShowFileSection(false);
+        // setShowFileSection(false);
       } catch (error) {
         console.error('Error reading Excel file:', error);
         setError('Có lỗi khi đọc file Excel. Vui lòng kiểm tra định dạng file.');
@@ -131,29 +271,29 @@ export default function ExcelReader() {
     };
   };
 
-  const clearData = () => {
-    setData([]);
-    setFileName('');
-    setError('');
-    setShowFileSection(true); // Mở rộng lại phần chọn file
-    clearLocalStorage(); // Xóa dữ liệu khỏi localStorage
-  };
+  // const clearData = () => {
+  //   setData([]);
+  //   setFileName('');
+  //   setError('');
+  //   setShowFileSection(true); // Mở rộng lại phần chọn file
+  //   clearLocalStorage(); // Xóa dữ liệu khỏi localStorage
+  // };
 
-  
+
 
   return (
-    <Container className="mt-4">
+    <Container className="mt-5 fade-in-up">
       <Row>
         <Col>
           <Card>
-            <Card.Header className="bg-danger text-white">
-              <div className="d-flex justify-content-between align-items-center">
+            <Card.Header className="w-100 bg-danger text-white" style={{ minWidth: '313px' }}>
+              <div className="w-100 d-flex justify-content-between align-items-center">
                 <h3 className="mb-0">
                   <span className="d-none d-sm-inline">📚 Hệ Thống Xem Thời Khóa Biểu</span>
                   <span className="d-sm-none">📚 Thời Khóa Biểu</span>
                 </h3>
-                <Button 
-                  variant="outline-light" 
+                <Button
+                  style={{ backgroundColor: 'transparent', border: 'none', color: 'white' }}
                   size="sm"
                   onClick={() => setShowFileSection(!showFileSection)}
                 >
@@ -179,7 +319,8 @@ export default function ExcelReader() {
                     </Form.Text> <br />
                     <Form.Text className="text-muted">
                       Lưu ý: Chọn file thời khóa biểu sinh viên theo ngày học
-                    </Form.Text>
+                    </Form.Text> <br />
+
                   </Form.Group>
 
                   {isRestoredData && data.length > 0 && (
@@ -193,14 +334,6 @@ export default function ExcelReader() {
                             </small>
                           )}
                         </div>
-                        <Button 
-                          variant="outline-primary" 
-                          size="sm"
-                          onClick={() => setShowFileSection(true)}
-                          className="flex-shrink-0 ms-2"
-                        >
-                          📂 Upload mới
-                        </Button>
                       </div>
                     </Alert>
                   )}
@@ -231,61 +364,19 @@ export default function ExcelReader() {
                   {data.length > 0 && (
                     <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
                       <Alert variant="success" className="flex-grow-1 mb-0">
-                        <strong>Thành công!</strong> 
+                        <strong>Thành công!</strong>
                         <span className="d-none d-sm-inline"> Đã tải {data.length} bản ghi từ file Excel.</span>
                         <span className="d-sm-none"> {data.length} bản ghi</span>
                       </Alert>
-                      <Button variant="outline-danger" onClick={clearData} className="flex-shrink-0">
-                        <span className="d-none d-sm-inline">🗑️ Xóa dữ liệu</span>
-                        <span className="d-sm-none">🗑️ Xóa</span>
-                      </Button>
                     </div>
                   )}
                 </Form>
               </Card.Body>
             )}
-            
-            {/* Hiển thị thông tin tóm tắt khi thu gọn */}
-            {!showFileSection && data.length > 0 && (
-              <Card.Body className="py-2 file-section-collapsed">
-                <div className="d-flex justify-content-between align-items-center flex-wrap">
-                  <div className="d-flex align-items-center flex-grow-1 me-2">
-                    <Badge bg={isRestoredData ? "primary" : "success"} className="me-2">
-                      {isRestoredData ? "💾" : "✓"}
-                    </Badge>
-                    <small className="text-truncate">
-                      <strong className="d-none d-sm-inline">{fileName}</strong>
-                      <span className="d-sm-none">{fileName.substring(0, 20)}...</span>
-                      <span className="text-muted"> - {data.length} bản ghi</span>
-                      {isRestoredData && (
-                        <span className="text-primary d-none d-sm-inline"> (Đã lưu)</span>
-                      )}
-                    </small>
-                  </div>
-                  <div className="d-flex gap-1">
-                    {isRestoredData && (
-                      <Button 
-                        variant="outline-primary" 
-                        size="sm" 
-                        onClick={() => setShowFileSection(true)}
-                        className="flex-shrink-0"
-                      >
-                        <span className="d-none d-sm-inline">📂 Upload mới</span>
-                        <span className="d-sm-none">📂</span>
-                      </Button>
-                    )}
-                    <Button variant="outline-danger" size="sm" onClick={clearData} className="flex-shrink-0">
-                      <span className="d-none d-sm-inline">🗑️ Xóa</span>
-                      <span className="d-sm-none">🗑️</span>
-                    </Button>
-                  </div>
-                </div>
-              </Card.Body>
-            )}
           </Card>
         </Col>
       </Row>
-      <ScheduleView data={data} />
+      {/* <ScheduleView data={data} /> */}
     </Container>
   );
 }

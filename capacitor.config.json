@@ -1,5 +1,11 @@
 {
   "appId": "com.schedulekma.app",
   "appName": "schedule",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_notify",
+      "iconColor": "#488AFF"
+    }
+  }
 }

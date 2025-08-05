@@ -1,6 +1,72 @@
 /* Custom styles for schedule app */
+.App {
+  min-height: 100vh;
+}
+
 .bg-light {
   background-color: #f8f9fa !important;
+}
+
+/* Offcanvas menu styles */
+.offcanvas-body .nav-link {
+  color: #333 !important;
+  transition: all 0.3s ease;
+}
+
+.offcanvas-body .nav-link:hover {
+  background-color: #f8f9fa;
+  transform: translateX(5px);
+}
+
+.offcanvas-body .nav-link.bg-primary {
+  color: white !important;
+}
+
+.offcanvas-body .nav-link.bg-primary small {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Navbar styles */
+.navbar-brand {
+  font-weight: 600;
+}
+
+.calendar-day-selected {
+  background-color:#88b2e5;
+}
+
+.calendar-day-selected.text-muted {
+  color: #fff !important;
+}
+
+
+
+/* Content area */
+.content-area {
+  padding-top: 30px;
+  background-color: #f8f9fa;
+  min-height: calc(100vh - 60px);
+}
+
+/* Toast customization */
+.toast-container {
+  z-index: 1060 !important;
+}
+
+.toast.bg-success .toast-header {
+  background-color: rgba(25, 135, 84, 0.9) !important;
+  color: white !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.toast.bg-success .btn-close {
+  filter: invert(1);
+}
+
+/* Navbar badge styling */
+.navbar-brand .badge {
+  font-size: 0.7rem !important;
+  padding: 0.25em 0.5em;
 }
 
 /* Custom table styling */
@@ -38,22 +104,32 @@
   flex-shrink: 0;
 }
 
+.navbar>.container{
+  justify-content: start;
+}
+
+.navbar-brand {
+  margin: 0 auto;
+}
+
+.offcanvas-custom {
+  width: calc(100vw - 50px) !important; 
+  max-width: 400px;  
+}
+
 .calendar-table .calendar-day {
   position: relative;
+  height: 50px;
   transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
-.calendar-day:hover {
-  background-color: #e3f2fd !important;
-}
-
-.calendar-day-has-schedule:hover {
-  background-color: #fff3cd !important;
-  cursor: pointer;
-}
 
 .calendar-day-has-schedule {
-  background-color: #f8f9fa;
+  background-color: #e3e5e8;
+}
+
+.table>:not(caption)>*>*.calendar-day-has-schedule {
+  background-color: #e3e5e8;
 }
 
 /* Swipe feedback styles */
@@ -118,20 +194,6 @@
   transition: all 0.2s ease;
 }
 
-.calendar-day-has-schedule {
-  background-color: #edebeb !important;
-}
-
-.calendar-day-has-schedule:hover {
-  background-color: #cbcbcb !important;
-  cursor: pointer;
-  transform: scale(1.02);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.calendar-day:not(.calendar-day-has-schedule):hover {
-  background-color: #f8f9fa;
-}
 
 /* Animation for schedule indicator */
 .calendar-day .bg-danger {
@@ -155,7 +217,7 @@
 
 /* Modal styling */
 .modal-header {
-  background: linear-gradient(135deg, #007bff, #0056b3);
+  /* background: linear-gradient(135deg, #007bff, #0056b3); */
   color: white;
 }
 
@@ -213,6 +275,22 @@
   background-color: rgba(255, 193, 7, 0.25) !important;
   border: 2px solid #ffc107;
 }
+
+.fade-in-up {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 
 /* Schedule indicator dot */
 .bg-danger.rounded-circle {
