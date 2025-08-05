@@ -1,6 +1,12 @@
-import { Button } from 'react-bootstrap';
+import { Button, Toast, ToastContainer } from 'react-bootstrap';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
+import { useState } from 'react';
 
 export default function ExportCSV({ data }) {
+    const [showToast, setShowToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
+    const [toastType, setToastType] = useState('success'); // success or danger
 
     const header = [
         "Subject",
@@ -40,15 +46,45 @@ export default function ExportCSV({ data }) {
     const content = header.map(val => val).join(",") + "\n" +
         rows.map(row => row.map(val => val).join(",")).join("\n");
 
-    function exportCalendar(filename = "calendar.csv") {
-        const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", filename);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    async function exportCalendar(filename = "calendar.csv") {
+        try {
+            if (Capacitor.isNativePlatform()) {
+                // Xử lý trên mobile (Android/iOS)
+                try {
+                    await Filesystem.writeFile({
+                        path: filename,
+                        data: content,
+                        directory: Directory.Documents,
+                        encoding: 'utf8',
+                    });
+                    
+                    setToastMessage('Đã lưu file thành công vào thư mục Documents');
+                    setToastType('success');
+                } catch (error) {
+                    console.error('Lỗi khi lưu file:', error);
+                    setToastMessage('Không thể lưu file. Vui lòng thử lại');
+                    setToastType('danger');
+                }
+            } else {
+                // Xử lý trên web
+                const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", filename);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setToastMessage('Đã tải file thành công');
+                setToastType('success');
+            }
+            setShowToast(true);
+        } catch (error) {
+            console.error('Lỗi khi xuất file:', error);
+            setToastMessage('Có lỗi xảy ra. Vui lòng thử lại');
+            setToastType('danger');
+            setShowToast(true);
+        }
     }
 
     return (
@@ -105,6 +141,30 @@ export default function ExportCSV({ data }) {
                     <li>Click "Import" để hoàn tất</li>
                 </ol>
             </div>
+            
+            {/* Toast thông báo */}
+            <ToastContainer position="top-end" className="p-3" style={{ zIndex: 1060 }}>
+                <Toast 
+                    show={showToast} 
+                    onClose={() => setShowToast(false)}
+                    delay={3000}
+                    autohide
+                    bg={toastType}
+                >
+                    <Toast.Header closeButton={false}>
+                        <strong className="me-auto">
+                            {toastType === 'success' ? 
+                                <i className="bi bi-check-circle me-2"></i> : 
+                                <i className="bi bi-exclamation-circle me-2"></i>
+                            }
+                            {toastType === 'success' ? 'Thành công' : 'Lỗi'}
+                        </strong>
+                    </Toast.Header>
+                    <Toast.Body className={toastType === 'success' ? 'text-white' : ''}>
+                        {toastMessage}
+                    </Toast.Body>
+                </Toast>
+            </ToastContainer>
         </div>
     )
 }

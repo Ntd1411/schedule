@@ -13,6 +13,7 @@
     "@capacitor/android": "^7.4.2",
     "@capacitor/cli": "^7.4.2",
     "@capacitor/core": "^7.4.2",
+    "@capacitor/filesystem": "^7.1.4",
     "@capacitor/local-notifications": "^7.0.1",
     "bootstrap": "^5.3.7",
     "bootstrap-icons": "^1.13.1",

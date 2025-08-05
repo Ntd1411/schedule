@@ -42,10 +42,22 @@
   dependencies:
     tslib "^2.1.0"
 
+"@capacitor/filesystem@^7.1.4":
+  version "7.1.4"
+  resolved "https://registry.npmjs.org/@capacitor/filesystem/-/filesystem-7.1.4.tgz"
+  integrity sha512-BdUnOVulHAtruW2GeC9o7e9LO5aFcVYqNn3dLypJSOck/WipUFNfI0QWoUS0FVGeqBbDJgFGi3zjXJx0lzbDkA==
+  dependencies:
+    "@capacitor/synapse" "^1.0.3"
+
 "@capacitor/local-notifications@^7.0.1":
   version "7.0.1"
   resolved "https://registry.npmjs.org/@capacitor/local-notifications/-/local-notifications-7.0.1.tgz"
   integrity sha512-GJewoiqiTLXNNRxqeJDi6vxj1Y37jLFI3KSdAM2Omvxew4ewyBSCjwOtXMQaEg+lvzGHtK6FPrSc2v/2EcL0wA==
+
+"@capacitor/synapse@^1.0.3":
+  version "1.0.4"
+  resolved "https://registry.npmjs.org/@capacitor/synapse/-/synapse-1.0.4.tgz"
+  integrity sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw==
 
 "@esbuild/win32-x64@0.25.8":
   version "0.25.8"
