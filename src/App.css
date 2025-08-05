@@ -297,6 +297,10 @@
   }
 }
 
+.card {
+  border: none;
+}
+
 
 /* Schedule indicator dot */
 .bg-danger.rounded-circle {
