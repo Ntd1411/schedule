@@ -9,8 +9,8 @@ const ScheduleView = ({ data }) => {
     return getScheduleData(data);
   }, [data]);
   const [selectedDate, setSelectedDate] = useState({
-    date: new Date('8/11/2025'),
-    dateKey: new Date('8/11/2025').toLocaleDateString('vi-VN'),
+    date: new Date(),
+    dateKey: new Date().toLocaleDateString('vi-VN'),
     hasSchedule: scheduleData.scheduleByDate[new Date().toLocaleDateString('vi-VN')]
       && scheduleData.scheduleByDate[new Date().toLocaleDateString('vi-VN')].length > 0,
     isCurrentMonth: true,
