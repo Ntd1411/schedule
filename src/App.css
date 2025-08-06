@@ -31,12 +31,12 @@
   font-weight: 600;
 }
 
-.calendar-day-selected {
-  background-color:#88b2e5;
-}
-
 .calendar-day-selected.text-muted {
   color: #fff !important;
+}
+
+.calendar-day-selected.calendar-today {
+  background-color: rgb(220, 53, 69) !important;
 }
 
 
@@ -124,12 +124,20 @@
 }
 
 
+.calendar-day-has-schedule.calendar-today,
+.calendar-today {
+  background-color: rgba(255, 193, 7, 0.5) !important;
+  border-right: 3px solid rgba(0, 0, 0, 0.55) !important;
+  border-bottom: 1px solid rgb(255, 111, 15) !important;
+}
+
 .calendar-day-has-schedule {
-  background-color: #e3e5e8;
+      border-right: 3px solid rgba(0, 0, 0, 0.804) !important;
+    border-bottom: 1px solid rgba(14, 6, 1, 0.774) !important;
 }
 
 .table>:not(caption)>*>*.calendar-day-has-schedule {
-  background-color: #e3e5e8;
+  background-color: #4933331d;
 }
 
 /* Swipe feedback styles */
@@ -270,12 +278,6 @@
   margin-top: 2px;
 }
 
-/* Today highlighting */
-.bg-warning.bg-opacity-25 {
-  background-color: rgba(255, 193, 7, 0.25) !important;
-  border: 2px solid #ffc107;
-}
-
 .fade-in-up {
   animation: fadeInUp 0.7s ease-out;
 }
@@ -299,6 +301,11 @@
 
 .card {
   border: none;
+}
+
+.card-footer {
+  border-top: none;
+  background-color: #fff;
 }
 
 

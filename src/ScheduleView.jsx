@@ -4,15 +4,22 @@ import getScheduleData from './getScheduleData';
 import { Capacitor } from '@capacitor/core';
 
 const ScheduleView = ({ data }) => {
+  // Phân tích cấu trúc dữ liệu Excel
+  const scheduleData = useMemo(() => {
+    return getScheduleData(data);
+  }, [data]);
   const [selectedDate, setSelectedDate] = useState({
-    date: new Date(0),
-    dateKey: "1/1/1970",
-    hasSchedule: false,
-    isCurrentMonth: false,
-    isToday: false,
-    isSelectedDate: false,
-    dayNumber: 0
+    date: new Date('8/11/2025'),
+    dateKey: new Date('8/11/2025').toLocaleDateString('vi-VN'),
+    hasSchedule: scheduleData.scheduleByDate[new Date().toLocaleDateString('vi-VN')]
+      && scheduleData.scheduleByDate[new Date().toLocaleDateString('vi-VN')].length > 0,
+    isCurrentMonth: true,
+    isToday: true,
+    isSelectedDate: true,
+    dayNumber: new Date().getDate()
   });
+
+  console.log(selectedDate);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [swipeOffset, setSwipeOffset] = useState(0);
@@ -28,10 +35,7 @@ const ScheduleView = ({ data }) => {
 
 
 
-  // Phân tích cấu trúc dữ liệu Excel
-  const scheduleData = useMemo(() => {
-    return getScheduleData(data);
-  }, [data]);
+
 
   // Tạo lịch tháng cho một tháng cụ thể
   const generateCalendarForMonth = (year, month) => {
@@ -284,10 +288,7 @@ const ScheduleView = ({ data }) => {
     if (isDraggingRef.current || Math.abs(swipeOffset) > 10) {
       return;
     }
-
-    if (dateInfo.hasSchedule) {
-      setSelectedDate(dateInfo);
-    }
+    setSelectedDate(dateInfo);
   };
 
   // Render calendar table cho một tháng
@@ -312,14 +313,14 @@ const ScheduleView = ({ data }) => {
                 <td
                   key={dayIndex}
                   className={`calendar-day text-center p-3 position-relative ${!day.isCurrentMonth ? 'text-muted' : ''
-                    } ${day.isToday ? 'bg-warning bg-opacity-25' : ''} ${day.hasSchedule ? 'calendar-day-has-schedule' : ''
+                    } ${day.isToday ? 'bg-warning bg-opacity-50 calendar-today' : ''} ${day.hasSchedule ? 'calendar-day-has-schedule' : ''
                     } ${day.isSelectedDate ? 'calendar-day-selected' : ''}`}
                   style={{
                     cursor: day.hasSchedule ? 'pointer' : 'default',
                     borderRadius: '15px',
                     margin: '5px',
-                    borderRight: '1px solid #dee2e6',
-                    borderBottom: '1px solid #dee2e6',
+                    borderRight: '1px solid rgba(185, 185, 185, 1)',
+                    borderBottom: '1px solid #adadadff',
                     backgroundColor: day.isSelectedDate ? 'rgb(220, 53, 69)' : '',
                     color: day.isSelectedDate ? '#fff' : '',
                   }}
@@ -404,7 +405,7 @@ const ScheduleView = ({ data }) => {
                 </div>
               </div>
             </Card.Body>
-            <Card.Footer className="text-muted">
+            <Card.Footer className="">
               <div className="d-flex justify-content-between align-items-center flex-wrap">
               </div>
             </Card.Footer>
@@ -412,11 +413,26 @@ const ScheduleView = ({ data }) => {
         </Col>
       </Row>
 
+      {selectedDate && !scheduleData.scheduleByDate[selectedDate.dateKey] &&
+        <div className='fade-in-up' key={selectedDate.date.getDate() + selectedDate.date.getMonth()}>
+          <Card className='mb-0'>
+            <Card.Header className="bg-danger text-white fw-bold text-center">
+              {selectedDate.date.getDate().toString().padStart(2, '0')}/{(selectedDate.date.getMonth() + 1).toString().padStart(2, '0')}/{selectedDate.date.getFullYear()}
+            </Card.Header>
+          </Card>
+          <Card>
+            <Card.Header className='text-center pb-4 pt-4'>
+              Không có dữ liệu
+            </Card.Header>
+          </Card>
+        </div>
+      }
+
       {selectedDate && scheduleData.scheduleByDate[selectedDate.dateKey] && (
         <div className='fade-in-up' key={selectedDate.dateKey}>
           <Card className='mb-0'>
             <Card.Header className="bg-danger text-white fw-bold text-center">
-              Ngày {selectedDate.date.getDate()}/{selectedDate.date.getMonth() + 1}/{selectedDate.date.getFullYear()}
+              {selectedDate.date.getDate().toString().padStart(2, '0')}/{(selectedDate.date.getMonth() + 1).toString().padStart(2, '0')}/{selectedDate.date.getFullYear()}
             </Card.Header>
           </Card>
 
@@ -447,12 +463,17 @@ const ScheduleView = ({ data }) => {
                   <Col md={12}>
                     <h6 className="text-danger" style={{ fontSize: '0.9rem' }}>
                       <Badge bg="danger" className="me-2">{groupedItem.code}</Badge>
-                      {groupedItem.subject} ({groupedItem.teacher})
+                      {groupedItem.subject}
                     </h6>
 
                   </Col>
                   {groupedItem.sessions.map((session, sessionIndex) => (
                     <div key={sessionIndex} className="bg-light" style={{ fontSize: '0.8rem' }}>
+                      <Col xs={12} md={6}>
+                        {session.period && (
+                          <div className="mb-1 text-muted"><strong>Giảng viên:</strong> {groupedItem.teacher}</div>
+                        )}
+                      </Col>
                       <Col xs={12} md={6}>
                         {session.period && (
                           <div className="mb-1 text-muted"><strong>Thời gian:</strong> {session.period}, {session.room}</div>
