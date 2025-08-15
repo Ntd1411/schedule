@@ -5,6 +5,7 @@ import ScheduleView from './ScheduleView';
 import ExportCSV from './ExportCSV';
 import getScheduleData from './getScheduleData';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import ScheduleCustomNotification from './ScheduleCustomNotification';
 // import NotificationSettings from './components/NotificationSettings';
 
 async function showAllScheduledNotifications() {
@@ -16,7 +17,11 @@ async function showAllScheduledNotifications() {
       return;
     }
 
-    const message = notifications.map((noti, index) => {
+    console.log(notifications.length);
+    console.log(notifications.sort((a, b) => new Date(a.schedule.at) - new Date(b.schedule.at)));
+
+
+    const message = notifications.sort((a, b) => new Date(a.schedule.at) - new Date(b.schedule.at)).map((noti, index) => {
       const time = new Date(noti.schedule.at).toLocaleString();
       return `#${index + 1} - ID: ${noti.id}, Title: "${noti.title}", Body: "${noti.body}" Time: ${time}`;
     }).join('\n');
@@ -68,21 +73,38 @@ const AppLayout = () => {
   const [hasInitialized, setHasInitialized] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [goToCurrentMonthFn, setGoToCurrentMonthFn] = useState(null);
 
   const handleClose = () => setShow(false);
   const handleShow = () => setShow(true);
   // setActiveSection("schedule");
 
   const scheduleDatas = useMemo(() => {
-      return getScheduleData(scheduleData);
-    }, [scheduleData]);
-  
-    // Truy cập scheduleByDate
-    const scheduleByDate = scheduleDatas.scheduleByDate;
+    return getScheduleData(scheduleData);
+  }, [scheduleData]);
+
+  // Truy cập scheduleByDate
+  const scheduleByDate = scheduleDatas.scheduleByDate;
 
   const handleSectionChange = (section) => {
     setActiveSection(section);
     handleClose();
+  };
+
+  // Callback để nhận hàm goToCurrentMonth từ ScheduleView
+  const handleGoToCurrentMonthCallback = useCallback((goToCurrentMonthFn) => {
+    setGoToCurrentMonthFn(() => goToCurrentMonthFn);
+  }, []);
+
+  // Hàm xử lý khi bấm nút calendar trong navbar
+  const handleCalendarButtonClick = () => {
+    if (activeSection !== 'schedule') {
+      // Nếu không ở trang schedule, chuyển đến trang schedule
+      setActiveSection('schedule');
+    } else if (goToCurrentMonthFn) {
+      // Nếu đã ở trang schedule, quay về tháng hiện tại
+      goToCurrentMonthFn();
+    }
   };
 
 
@@ -142,6 +164,7 @@ const AppLayout = () => {
         return scheduleData ? (
           <ScheduleView
             data={scheduleData}
+            onGoToCurrentMonth={handleGoToCurrentMonthCallback}
           />
         ) : (
           <div className="text-center py-5">
@@ -187,6 +210,12 @@ const AppLayout = () => {
                             Danh sách thông báo
                           </Button>
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="list-group-item">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <ScheduleCustomNotification />
                       </div>
                     </div>
 
@@ -248,10 +277,10 @@ const AppLayout = () => {
           </Navbar.Brand>
           <Button
             style={{ backgroundColor: 'transparent', border: 'none', color: 'white' }}
-            onClick={() => handleSectionChange('schedule')}
+            onClick={handleCalendarButtonClick}
             className="me-2"
           >
-           <i className="bi bi-calendar"></i>
+            <i className="bi bi-calendar"></i>
           </Button>
         </Container>
       </Navbar>
@@ -294,8 +323,8 @@ const AppLayout = () => {
               onClick={() => handleSectionChange('exportcsv')}
               style={{ cursor: 'pointer' }}
             >
-                  <i className="bi bi-filetype-csv"></i>  Xuất file csv
-                  <small className="d-block text-muted">Tải về file csv</small>
+              <i className="bi bi-filetype-csv"></i>  Xuất file csv
+              <small className="d-block text-muted">Tải về file csv</small>
             </Nav.Link>
 
             <Nav.Link
@@ -342,10 +371,10 @@ const AppLayout = () => {
           autohide
           bg="light"
         >
-          <Toast.Header style={{borderBottom: '5px solid rgba(4, 195, 26, 1)'}}>
+          <Toast.Header style={{ borderBottom: '5px solid rgba(4, 195, 26, 1)' }}>
             <strong className="mt-2 me-auto"> <i className="bi bi-check"></i>Thành công</strong>
           </Toast.Header>
-          <Toast.Body style={{color: 'dark'}}>{toastMessage}</Toast.Body>
+          <Toast.Body style={{ color: 'dark' }}>{toastMessage}</Toast.Body>
         </Toast>
       </ToastContainer>
     </>

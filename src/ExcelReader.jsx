@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { SplashScreen } from '@capacitor/splash-screen';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import * as XLSX from 'xlsx';
 import { Container, Row, Col, Card, Table, Button, Alert, Form, Badge } from 'react-bootstrap';
@@ -144,7 +145,7 @@ export default function ExcelReader({ onDataLoaded }) {
   const scheduleAllNotification = async (scheduleByDateData) => {
     try {
       // console.log('scheduleAllNotification received data:', scheduleByDateData);
-      
+
       if (!scheduleByDateData || Object.keys(scheduleByDateData).length === 0) {
         throw new Error('Không có dữ liệu lịch học để lên lịch thông báo');
       }
@@ -158,6 +159,14 @@ export default function ExcelReader({ onDataLoaded }) {
       if (status.display !== 'granted') {
         throw new Error('Quyền thông báo bị từ chối. Vui lòng cấp quyền để nhận thông báo');
       }
+
+      await LocalNotifications.createChannel({
+        id: 'schedule',
+        name: 'Lịch học',
+        description: 'Thông báo cho các môn học sắp tới',
+        importance: 5,
+        visibility: 1
+      });
 
       // Xóa thông báo cũ
       await clearNotification();
@@ -173,25 +182,26 @@ export default function ExcelReader({ onDataLoaded }) {
             const startTime = getStartTimeByPeriod(schedule.period);
             if (!startTime) continue;
 
+            const [day, month, year] = dateKey.split('/').map(Number);
             const [hours, minutes] = startTime.split(':').map(Number);
-            const date = new Date(dateKey.split('/').reverse().join('-'));
-            date.setHours(hours, minutes, 0, 0);
+            const date = new Date(year, month - 1, day, hours, minutes, 0, 0);
 
             // Chỉ lên lịch cho các thông báo trong tương lai
             if (date <= currentDate) continue;
 
             const notificationTime = new Date(date.getTime() - 15 * 60 * 1000);
+            console.log('Sẽ thông báo lúc:', notificationTime.toString());
+
             const notificationID = generateNotificationId(dateKey, schedule.code, index);
 
             await LocalNotifications.schedule({
               notifications: [{
-                title: 'Môn học sắp tới',
-                body: `Môn ${schedule.subject} bắt đầu vào ${startTime} tại ${schedule.room}`,
+                title: `Môn ${schedule.subject}`,
+                body: `${startTime}, ${schedule.room}`,
                 id: notificationID,
-                schedule: { at: notificationTime },
-                smallIcon: 'ic_stat_notify',
-                sound: 'beep.wav',
-                ongoing: false
+                channelId: 'schedule',
+                schedule: { at: notificationTime, allowWhileIdle: true },
+                smallIcon: 'ic_stat_notify'
               }]
             });
 
@@ -217,7 +227,7 @@ export default function ExcelReader({ onDataLoaded }) {
     // Xử lý và kiểm tra dữ liệu
     const processedData = getScheduleData(jsonData);
     // console.log('Processed data:', processedData);
-    
+
     if (!processedData || !processedData.scheduleByDate) {
       throw new Error('Không thể xử lý dữ liệu thời khóa biểu');
     }
@@ -265,23 +275,23 @@ export default function ExcelReader({ onDataLoaded }) {
 
         // Xử lý dữ liệu
         const processedData = await processExcelData(jsonData);
-        
+
         // Cập nhật state và storage
         setData(jsonData);
         saveToLocalStorage(jsonData, file.name);
-        
+
         if (onDataLoadedRef.current) {
           onDataLoadedRef.current(jsonData, true);
         }
 
         // Lên lịch thông báo sau khi đã xử lý xong dữ liệu
         await scheduleAllNotification(processedData.scheduleByDate);
-        
+
         setLoading(false);
       } catch (error) {
         console.error('Error processing file:', error);
         let errorMessage = 'Có lỗi khi xử lý file Excel.';
-        
+
         if (error.message.includes('Không tìm thấy dữ liệu')) {
           errorMessage = 'File không chứa dữ liệu thời khóa biểu hợp lệ.';
         } else if (error.message.includes('Không thể xử lý')) {
@@ -289,7 +299,7 @@ export default function ExcelReader({ onDataLoaded }) {
         } else if (error.message.includes('Quyền thông báo')) {
           errorMessage = error.message;
         }
-        
+
         setError(errorMessage);
         setLoading(false);
       }

@@ -1,9 +1,14 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Card, Table, Badge, Row, Col, Modal, Button, Dropdown, ButtonGroup, CardHeader } from 'react-bootstrap';
 import getScheduleData from './getScheduleData';
 import { Capacitor } from '@capacitor/core';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import 'swiper/css';
 
-const ScheduleView = ({ data }) => {
+
+const ScheduleView = ({ data, onGoToCurrentMonth }) => {
+  const swiper = useRef(null);
+
   // Phân tích cấu trúc dữ liệu Excel
   const scheduleData = useMemo(() => {
     return getScheduleData(data);
@@ -19,27 +24,15 @@ const ScheduleView = ({ data }) => {
     dayNumber: new Date().getDate()
   });
 
-  console.log(selectedDate);
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [showSwipeFeedback, setShowSwipeFeedback] = useState({ show: false, direction: '' });
-  const [isTransitioning, setIsTransitioning] = useState(false);
-
-  // Refs for swipe handling
-  const calendarRef = useRef(null);
-  const touchStartRef = useRef({ x: 0, y: 0 });
-  const touchEndRef = useRef({ x: 0, y: 0 });
-  const isDraggingRef = useRef(false);
-  const swipeThreshold = 50; // Minimum distance for swipe
-
-
-
+  const currentYear = new Date().getFullYear();
+  const [prevYearGenerated, setPrevYearGenerated] = useState(currentYear - 1)
+  const [nextYearGenerated, setNextYearGenerated] = useState(currentYear + 2)
 
 
   // Tạo lịch tháng cho một tháng cụ thể
-  const generateCalendarForMonth = (year, month) => {
+  const generateCalendarForMonth = useCallback((year, month) => {
     const today = new Date();
+    month = month - 1;
 
     const firstDay = new Date(year, month, 1);
     const startDate = new Date(firstDay);
@@ -55,7 +48,6 @@ const ScheduleView = ({ data }) => {
         const hasSchedule = scheduleData.scheduleByDate[dateKey] &&
           scheduleData.scheduleByDate[dateKey].length > 0;
         const isCurrentMonth = current.getMonth() === month;
-        // console.log(selectedDate);
         const isSelectedDate = selectedDate.date.toDateString() === current.toDateString();
         const isToday = current.toDateString() === today.toDateString();
 
@@ -73,343 +65,211 @@ const ScheduleView = ({ data }) => {
       }
       calendar.push(weekDays);
     }
+    month++;
+
+    return { month, year, calendar };
+  }, [selectedDate, scheduleData]);
+
+  const generateTwoYearCalendar = useCallback(() => {
+    const calendar = []
+
+    for (let month = 1; month < 13; month++) {
+      calendar.push(generateCalendarForMonth(currentYear, month));
+    }
+    for (let month = 1; month < 13; month++) {
+      calendar.push(generateCalendarForMonth(currentYear + 1, month));
+    }
 
     return calendar;
-  };
+  }, [generateCalendarForMonth, currentYear]);
 
-  // Tạo 3 tháng: trước, hiện tại, sau
-  const generate3MonthsCalendar = () => {
-    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+  const [calendarData, setCalendarData] = useState([]);
 
-    const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
-    const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
-
-    return {
-      prev: {
-        calendar: generateCalendarForMonth(prevYear, prevMonth),
-        month: prevMonth,
-        year: prevYear
-      },
-      current: {
-        calendar: generateCalendarForMonth(currentYear, currentMonth),
-        month: currentMonth,
-        year: currentYear
-      },
-      next: {
-        calendar: generateCalendarForMonth(nextYear, nextMonth),
-        month: nextMonth,
-        year: nextYear
-      }
-    };
-  };
-
-  // Hàm điều hướng tháng
-  const goToPreviousMonth = () => {
-    if (isTransitioning) return;
-
-    setIsTransitioning(true);
-
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear(currentYear - 1);
-    } else {
-      setCurrentMonth(currentMonth - 1);
-    }
-
-    setTimeout(() => setIsTransitioning(false), 300);
-  };
-
-  const goToNextMonth = () => {
-    if (isTransitioning) return;
-
-    setIsTransitioning(true);
-
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear(currentYear + 1);
-    } else {
-      setCurrentMonth(currentMonth + 1);
-    }
-
-    setTimeout(() => setIsTransitioning(false), 300);
-  };
-
-  // Swipe gesture handlers
-  const handleTouchStart = (e) => {
-    if (isTransitioning) return;
-
-    touchStartRef.current = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY
-    };
-    isDraggingRef.current = false;
-    setSwipeOffset(0);
-  };
-
-  const handleTouchEnd = () => {
-    if (!isDraggingRef.current || isTransitioning) return;
-
-    const deltaX = touchEndRef.current.x - touchStartRef.current.x;
-
-    // Reset offset và feedback
-    setSwipeOffset(0);
-    setShowSwipeFeedback({ show: false, direction: '' });
-
-    // Thực hiện chuyển tháng nếu swipe đủ xa
-    if (Math.abs(deltaX) > swipeThreshold) {
-      if (deltaX > 0) {
-        goToPreviousMonth();
-      } else {
-        goToNextMonth();
-      }
-    }
-
-    // Reset refs
-    touchStartRef.current = { x: 0, y: 0 };
-    touchEndRef.current = { x: 0, y: 0 };
-    isDraggingRef.current = false;
-  };
-
-  // Add event listeners with passive: false option using useEffect
+  // Tạo lại calendar mỗi khi selectedDate thay đổi
   useEffect(() => {
-    const calendarElement = calendarRef.current;
-    if (!calendarElement) return;
+    const newCalendarData = generateTwoYearCalendar();
+    setCalendarData(newCalendarData);
+  }, [generateTwoYearCalendar]);
 
-    const handleTouchMovePassive = (e) => {
-      if (!touchStartRef.current.x || isTransitioning) return;
-
-      const currentX = e.touches[0].clientX;
-      const currentY = e.touches[0].clientY;
-      const deltaX = currentX - touchStartRef.current.x;
-      const deltaY = currentY - touchStartRef.current.y;
-
-      // Chỉ xử lý horizontal swipe nếu deltaX > deltaY
-      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 20) {
-        e.preventDefault();
-        isDraggingRef.current = true;
-
-        // Tính toán offset dựa trên container width
-        const containerWidth = calendarElement.offsetWidth || 400;
-        const maxOffset = containerWidth * 0.3; // Tối đa 30% width
-        const limitedOffset = Math.max(-maxOffset, Math.min(maxOffset, deltaX * 0.8));
-        setSwipeOffset(limitedOffset);
-
-        // Hiển thị feedback
-        if (Math.abs(deltaX) > swipeThreshold * 0.6) {
-          setShowSwipeFeedback({
-            show: true,
-            direction: deltaX > 0 ? 'left' : 'right'
-          });
-        } else {
-          setShowSwipeFeedback({ show: false, direction: '' });
-        }
-      }
-
-      touchEndRef.current = { x: currentX, y: currentY };
-    };
-
-    // Add event listeners with passive: false
-    calendarElement.addEventListener('touchmove', handleTouchMovePassive, { passive: false });
-
-    // Cleanup function
-    return () => {
-      calendarElement.removeEventListener('touchmove', handleTouchMovePassive);
-    };
-  }, [isTransitioning, swipeThreshold]);
-
-  // Mouse events for desktop
-  const handleMouseDown = (e) => {
-    if (isTransitioning) return;
-
-    touchStartRef.current = {
-      x: e.clientX,
-      y: e.clientY
-    };
-    isDraggingRef.current = false;
-    setSwipeOffset(0);
-  };
-
-  const handleMouseMove = (e) => {
-    if (!touchStartRef.current.x || !e.buttons || isTransitioning) return;
-
-    const deltaX = e.clientX - touchStartRef.current.x;
-    const deltaY = e.clientY - touchStartRef.current.y;
-
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 20) {
-      e.preventDefault();
-      isDraggingRef.current = true;
-
-      const containerWidth = calendarRef.current?.offsetWidth || 400;
-      const maxOffset = containerWidth * 0.3;
-      const limitedOffset = Math.max(-maxOffset, Math.min(maxOffset, deltaX * 0.8));
-      setSwipeOffset(limitedOffset);
-
-      if (Math.abs(deltaX) > swipeThreshold * 0.6) {
-        setShowSwipeFeedback({
-          show: true,
-          direction: deltaX > 0 ? 'left' : 'right'
-        });
-      } else {
-        setShowSwipeFeedback({ show: false, direction: '' });
-      }
-    }
-
-    touchEndRef.current = { x: e.clientX, y: e.clientY };
-  };
-
-  const handleMouseUp = () => {
-    if (!isDraggingRef.current || isTransitioning) return;
-
-    const deltaX = touchEndRef.current.x - touchStartRef.current.x;
-
-    setSwipeOffset(0);
-    setShowSwipeFeedback({ show: false, direction: '' });
-
-    if (Math.abs(deltaX) > swipeThreshold) {
-      if (deltaX > 0) {
-        goToPreviousMonth();
-      } else {
-        goToNextMonth();
-      }
-    }
-
-    touchStartRef.current = { x: 0, y: 0 };
-    touchEndRef.current = { x: 0, y: 0 };
-    isDraggingRef.current = false;
-  };
-
-  if (!data || data.length === 0) return null;
-
-  const threeMonthsData = generate3MonthsCalendar();
 
   const handleDateClick = (dateInfo) => {
-    // Không xử lý click nếu đang trong quá trình swipe
-    if (isDraggingRef.current || Math.abs(swipeOffset) > 10) {
-      return;
-    }
     setSelectedDate(dateInfo);
   };
 
+  // Hàm để quay về tháng hiện tại
+  const goToCurrentMonth = useCallback(() => {
+    if (!swiper.current) return;
+
+    const now = new Date();
+    const currentMonthIndex = now.getMonth(); // 0-11
+    const currentYearNum = now.getFullYear();
+
+    // Tìm index của slide tương ứng với tháng hiện tại
+    let targetSlideIndex = -1;
+
+    calendarData.forEach((monthData, index) => {
+      if (monthData.year === currentYearNum && monthData.month === currentMonthIndex + 1) {
+        targetSlideIndex = index;
+      }
+    });
+
+    if (targetSlideIndex !== -1) {
+      swiper.current.slideTo(targetSlideIndex, 500);
+    }
+  }, [calendarData]);
+
+  // Đăng ký callback với component cha
+  useEffect(() => {
+    if (onGoToCurrentMonth) {
+      onGoToCurrentMonth(goToCurrentMonth);
+    }
+  }, [goToCurrentMonth, onGoToCurrentMonth]);
+
+  const handleReachBeginning = useCallback(() => {
+    if (swiper.current?.activeIndex === 1) {
+      const prevYearCalendar = [];
+
+      // Thêm năm trước vào đầu
+      for (let month = 1; month < 13; month++) {
+        prevYearCalendar.push(generateCalendarForMonth(prevYearGenerated, month));
+      }
+
+      setCalendarData([...prevYearCalendar, ...calendarData]);
+      setPrevYearGenerated(prevYearGenerated - 1)
+
+      requestAnimationFrame(() => {
+        swiper.current.slideTo(12, 0, false); // Di chuyển đến slide tương ứng với tháng hiện tại
+      });
+    }
+  }, [generateCalendarForMonth, prevYearGenerated, calendarData]);
+
+  const handleReachEnd = useCallback(() => {
+    const totalSlides = calendarData.length;
+    if (swiper.current?.activeIndex === totalSlides - 2) {
+      const nextYearCalendar = [];
+
+      // Thêm năm mới vào cuối
+      for (let month = 1; month < 13; month++) {
+        nextYearCalendar.push(generateCalendarForMonth(nextYearGenerated, month));
+      }
+
+      setCalendarData([...calendarData, ...nextYearCalendar]);
+      setNextYearGenerated(nextYearGenerated + 1)
+    }
+  }, [generateCalendarForMonth, nextYearGenerated, calendarData]);
+
+  if (!data || data.length === 0) return null;
+
   // Render calendar table cho một tháng
-  const renderCalendarTable = (calendar) => {
+  const renderCalendarTable = () => {
     return (
-      <Table responsive className="calendar-table mb-0">
-        <thead className="table-dark">
-          <tr>
-            <th className="text-center">CN</th>
-            <th className="text-center">T2</th>
-            <th className="text-center">T3</th>
-            <th className="text-center">T4</th>
-            <th className="text-center">T5</th>
-            <th className="text-center">T6</th>
-            <th className="text-center">T7</th>
-          </tr>
-        </thead>
-        <tbody>
-          {calendar.map((week, weekIndex) => (
-            <tr key={weekIndex}>
-              {week.map((day, dayIndex) => (
-                <td
-                  key={dayIndex}
-                  className={`calendar-day text-center p-3 position-relative ${!day.isCurrentMonth ? 'text-muted' : ''
-                    } ${day.isToday ? 'bg-warning bg-opacity-50 calendar-today' : ''} ${day.hasSchedule ? 'calendar-day-has-schedule' : ''
-                    } ${day.isSelectedDate ? 'calendar-day-selected' : ''}`}
-                  style={{
-                    cursor: day.hasSchedule ? 'pointer' : 'default',
-                    borderRadius: '15px',
-                    margin: '5px',
-                    borderRight: '1px solid rgba(185, 185, 185, 1)',
-                    borderBottom: '1px solid #adadadff',
-                    backgroundColor: day.isSelectedDate ? 'rgb(220, 53, 69)' : '',
-                    color: day.isSelectedDate ? '#fff' : '',
-                  }}
-                  onClick={() => handleDateClick(day)}
-                >
-                  <div className="fw-bold">{day.dayNumber}</div>
-                  {day.hasSchedule && (
-                    <div className="position-absolute schedule-indicator" style={{ top: "-5px", right: "10px" }}>
-                      <div
-                        className="bg-danger rounded-circle"
-                        style={{ width: '8px', height: '8px', marginTop: '15px' }}
-                      ></div>
-                    </div>
-                  )}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </Table>
+      <>
+        {calendarData.map((calendarMonth, index) =>
+          <SwiperSlide key={index}>
+            <Card className='w-100 mb-0 calendar-month'>
+              <Card.Header className="bg-dark text-white">
+                <div className={Capacitor.isNativePlatform() ? 'text-center' : 'd-flex justify-content-between align-items-center'}>
+                  {!Capacitor.isNativePlatform() ? <ButtonGroup size="sm">
+                    <Button variant="dark" onClick={() => swiper.current?.slidePrev(500)}>
+                      ‹ Trước
+                    </Button>
+                  </ButtonGroup> : ''}
+                  <h5 className="mb-0">{calendarMonth.month.toString().padStart(2, '0')}/{calendarMonth.year}</h5>
+                  {!Capacitor.isNativePlatform() ? <Button size='sm' variant="dark" onClick={() => swiper.current?.slideNext(500)}>
+                    Sau ›
+                  </Button> : ''}
+                </div>
+              </Card.Header>
+              <Card.Body className="p-0 calendar-container">
+                <div className='calendar-wrapper'>
+                  <div className="calendar-month">
+                    <Table className="calendar-table mb-0">
+                      <thead className="table-dark">
+                        <tr>
+                          <th className="text-center">CN</th>
+                          <th className="text-center">T2</th>
+                          <th className="text-center">T3</th>
+                          <th className="text-center">T4</th>
+                          <th className="text-center">T5</th>
+                          <th className="text-center">T6</th>
+                          <th className="text-center">T7</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {calendarMonth.calendar.map((week, weekIndex) => (
+                          <tr key={weekIndex}>
+                            {week.map((day, dayIndex) => (
+                              <td
+                                key={dayIndex}
+                                className={`calendar-day text-center p-3 position-relative ${!day.isCurrentMonth ? 'text-muted' : ''
+                                  } ${day.isToday ? 'bg-warning bg-opacity-50 calendar-today' : ''} ${day.hasSchedule ? 'calendar-day-has-schedule' : ''
+                                  } ${day.isSelectedDate ? 'calendar-day-selected' : ''}`}
+                                style={{
+                                  cursor: day.hasSchedule ? 'pointer' : 'default',
+                                  borderRadius: '15px',
+                                  margin: '5px',
+                                  borderRight: '1px solid rgba(185, 185, 185, 1)',
+                                  borderBottom: '1px solid #adadadff',
+                                  backgroundColor: day.isSelectedDate ? 'rgb(220, 53, 69)' : '',
+                                  color: day.isSelectedDate ? '#fff' : '',
+                                }}
+                                onClick={() => handleDateClick(day)}
+                              >
+                                <div className="fw-bold">{day.dayNumber}</div>
+                                {day.hasSchedule && (
+                                  <div className="position-absolute schedule-indicator" style={{ top: "-5px", right: "10px" }}>
+                                    <div
+                                      className="bg-danger rounded-circle"
+                                      style={{ width: '8px', height: '8px', marginTop: '15px' }}
+                                    ></div>
+                                  </div>
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </div>
+                </div>
+              </Card.Body>
+              <Card.Footer className="">
+                <div className="d-flex justify-content-between align-items-center flex-wrap">
+                </div>
+              </Card.Footer>
+            </Card>
+          </SwiperSlide>
+        )}
+      </>
     );
   };
 
   return (
     <>
       <Row className='fade-in-up' style={{ margin: "24px 0 0px", padding: "0" }}>
-        <Col className='p-0'>
-          <Card className='w-100 mb-0'>
-            <Card.Header className="bg-dark text-white">
-              <div className={Capacitor.isNativePlatform() ? 'text-center' : 'd-flex justify-content-between align-items-center'}>
-                {!Capacitor.isNativePlatform() ? <ButtonGroup size="sm">
-                  <Button variant="dark" onClick={goToPreviousMonth} disabled={isTransitioning}>
-                    ‹ Trước
-                  </Button>
-                </ButtonGroup> : ''}
-                <h5 className="mb-0">{currentMonth + 1}/{currentYear}</h5>
-                {!Capacitor.isNativePlatform() ? <Button size='sm' variant="dark" onClick={goToNextMonth} disabled={isTransitioning}>
-                  Sau ›
-                </Button> : ''}
-              </div>
-            </Card.Header>
-            <Card.Body className="p-0">
-              <div
-                className="calendar-container position-relative"
-                ref={calendarRef}
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-                style={{ cursor: isDraggingRef.current ? 'grabbing' : 'grab' }}
-              >
-                {/* Swipe feedback indicators */}
-                {showSwipeFeedback.show && (
-                  <div className={`calendar-swipe-feedback ${showSwipeFeedback.direction}`}>
-                    {showSwipeFeedback.direction === 'left' ? '‹' : '›'}
-                  </div>
-                )}
-
-                <div
-                  className="calendar-wrapper"
-                  style={{
-                    transform: `translateX(calc(-33.333% + ${swipeOffset}px))`,
-                    transition: isDraggingRef.current ? 'none' : 'transform 0.3s ease-out'
-                  }}
-                >
-                  {/* Tháng trước */}
-                  <div className="calendar-month">
-                    {renderCalendarTable(threeMonthsData.prev.calendar)}
-                  </div>
-
-                  {/* Tháng hiện tại */}
-                  <div className="calendar-month">
-                    {renderCalendarTable(threeMonthsData.current.calendar)}
-                  </div>
-
-                  {/* Tháng sau */}
-                  <div className="calendar-month">
-                    {renderCalendarTable(threeMonthsData.next.calendar)}
-                  </div>
-                </div>
-              </div>
-            </Card.Body>
-            <Card.Footer className="">
-              <div className="d-flex justify-content-between align-items-center flex-wrap">
-              </div>
-            </Card.Footer>
-          </Card>
+        <Col className='p-0 d-flex calendar-wrapper'>
+          <Swiper
+            resistanceRatio={0.65}
+            threshold={10}
+            touchStartPreventDefault={false}
+            followFinger={true}         // vuốt theo ngón tay
+            shortSwipes={true}          // vuốt ngắn vẫn nhận
+            longSwipesRatio={0.15}      // tỷ lệ vuốt cần để đổi slide
+            touchMoveStopPropagation={true}
+            passiveListeners={true}
+            speed={500}
+            spaceBetween={1}
+            onReachEnd={handleReachEnd}
+            onReachBeginning={handleReachBeginning}
+            onSwiper={(s) => (swiper.current = s)}
+            initialSlide={
+              new Date().getFullYear() === currentYear
+                ? new Date().getMonth()
+                : 0
+            }
+            className='calendar-wrapper'>
+            {renderCalendarTable()}
+          </Swiper>
         </Col>
       </Row>
 
