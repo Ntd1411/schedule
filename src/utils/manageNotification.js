@@ -12,8 +12,8 @@ export async function showAllScheduledNotifications() {
       return
     }
 
-    console.log(notifications.length)
-    console.log(notifications.sort((a, b) => new Date(a.schedule.at) - new Date(b.schedule.at)))
+    // console.log(notifications.length)
+    // console.log(notifications.sort((a, b) => new Date(a.schedule.at) - new Date(b.schedule.at)))
 
 
     const message = notifications.sort((a, b) => new Date(a.schedule.at) - new Date(b.schedule.at)).map((noti, index) => {
