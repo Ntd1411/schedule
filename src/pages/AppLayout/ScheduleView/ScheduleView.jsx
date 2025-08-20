@@ -1,18 +1,18 @@
-import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { Card, Table, Badge, Row, Col, Modal, Button, Dropdown, ButtonGroup, CardHeader } from 'react-bootstrap';
-import getScheduleData from './getScheduleData';
-import { Capacitor } from '@capacitor/core';
-import { Swiper, SwiperSlide } from 'swiper/react';
-import 'swiper/css';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { Card, Table, Badge, Row, Col, Modal, Button, Dropdown, ButtonGroup, CardHeader } from 'react-bootstrap'
+import getScheduleData from '~/utils/getScheduleData'
+import { Capacitor } from '@capacitor/core'
+import { Swiper, SwiperSlide } from 'swiper/react'
+import 'swiper/css'
 
 
 const ScheduleView = ({ data, onGoToCurrentMonth }) => {
-  const swiper = useRef(null);
+  const swiper = useRef(null)
 
   // Phân tích cấu trúc dữ liệu Excel
   const scheduleData = useMemo(() => {
-    return getScheduleData(data);
-  }, [data]);
+    return getScheduleData(data)
+  }, [data])
   const [selectedDate, setSelectedDate] = useState({
     date: new Date(),
     dateKey: new Date().toLocaleDateString('vi-VN'),
@@ -22,34 +22,34 @@ const ScheduleView = ({ data, onGoToCurrentMonth }) => {
     isToday: true,
     isSelectedDate: true,
     dayNumber: new Date().getDate()
-  });
+  })
 
-  const currentYear = new Date().getFullYear();
+  const currentYear = new Date().getFullYear()
   const [prevYearGenerated, setPrevYearGenerated] = useState(currentYear - 1)
   const [nextYearGenerated, setNextYearGenerated] = useState(currentYear + 2)
 
 
   // Tạo lịch tháng cho một tháng cụ thể
   const generateCalendarForMonth = useCallback((year, month) => {
-    const today = new Date();
-    month = month - 1;
+    const today = new Date()
+    month = month - 1
 
-    const firstDay = new Date(year, month, 1);
-    const startDate = new Date(firstDay);
-    startDate.setDate(startDate.getDate() - firstDay.getDay());
+    const firstDay = new Date(year, month, 1)
+    const startDate = new Date(firstDay)
+    startDate.setDate(startDate.getDate() - firstDay.getDay())
 
-    const calendar = [];
-    const current = new Date(startDate);
+    const calendar = []
+    const current = new Date(startDate)
 
     for (let week = 0; week < 6; week++) {
-      const weekDays = [];
+      const weekDays = []
       for (let day = 0; day < 7; day++) {
-        const dateKey = current.toLocaleDateString('vi-VN');
+        const dateKey = current.toLocaleDateString('vi-VN')
         const hasSchedule = scheduleData.scheduleByDate[dateKey] &&
-          scheduleData.scheduleByDate[dateKey].length > 0;
-        const isCurrentMonth = current.getMonth() === month;
-        const isSelectedDate = selectedDate.date.toDateString() === current.toDateString();
-        const isToday = current.toDateString() === today.toDateString();
+          scheduleData.scheduleByDate[dateKey].length > 0
+        const isCurrentMonth = current.getMonth() === month
+        const isSelectedDate = selectedDate.date.toDateString() === current.toDateString()
+        const isToday = current.toDateString() === today.toDateString()
 
         weekDays.push({
           date: new Date(current),
@@ -59,106 +59,106 @@ const ScheduleView = ({ data, onGoToCurrentMonth }) => {
           isToday,
           isSelectedDate,
           dayNumber: current.getDate()
-        });
+        })
 
-        current.setDate(current.getDate() + 1);
+        current.setDate(current.getDate() + 1)
       }
-      calendar.push(weekDays);
+      calendar.push(weekDays)
     }
-    month++;
+    month++
 
-    return { month, year, calendar };
-  }, [selectedDate, scheduleData]);
+    return { month, year, calendar }
+  }, [selectedDate, scheduleData])
 
   const generateTwoYearCalendar = useCallback(() => {
     const calendar = []
 
     for (let month = 1; month < 13; month++) {
-      calendar.push(generateCalendarForMonth(currentYear, month));
+      calendar.push(generateCalendarForMonth(currentYear, month))
     }
     for (let month = 1; month < 13; month++) {
-      calendar.push(generateCalendarForMonth(currentYear + 1, month));
+      calendar.push(generateCalendarForMonth(currentYear + 1, month))
     }
 
-    return calendar;
-  }, [generateCalendarForMonth, currentYear]);
+    return calendar
+  }, [generateCalendarForMonth, currentYear])
 
-  const [calendarData, setCalendarData] = useState([]);
+  const [calendarData, setCalendarData] = useState([])
 
   // Tạo lại calendar mỗi khi selectedDate thay đổi
   useEffect(() => {
-    const newCalendarData = generateTwoYearCalendar();
-    setCalendarData(newCalendarData);
-  }, [generateTwoYearCalendar]);
+    const newCalendarData = generateTwoYearCalendar()
+    setCalendarData(newCalendarData)
+  }, [generateTwoYearCalendar])
 
 
   const handleDateClick = (dateInfo) => {
-    setSelectedDate(dateInfo);
-  };
+    setSelectedDate(dateInfo)
+  }
 
   // Hàm để quay về tháng hiện tại
   const goToCurrentMonth = useCallback(() => {
-    if (!swiper.current) return;
+    if (!swiper.current) return
 
-    const now = new Date();
-    const currentMonthIndex = now.getMonth(); // 0-11
-    const currentYearNum = now.getFullYear();
+    const now = new Date()
+    const currentMonthIndex = now.getMonth() // 0-11
+    const currentYearNum = now.getFullYear()
 
     // Tìm index của slide tương ứng với tháng hiện tại
-    let targetSlideIndex = -1;
+    let targetSlideIndex = -1
 
     calendarData.forEach((monthData, index) => {
       if (monthData.year === currentYearNum && monthData.month === currentMonthIndex + 1) {
-        targetSlideIndex = index;
+        targetSlideIndex = index
       }
-    });
+    })
 
     if (targetSlideIndex !== -1) {
-      swiper.current.slideTo(targetSlideIndex, 500);
+      swiper.current.slideTo(targetSlideIndex, 500)
     }
-  }, [calendarData]);
+  }, [calendarData])
 
   // Đăng ký callback với component cha
   useEffect(() => {
     if (onGoToCurrentMonth) {
-      onGoToCurrentMonth(goToCurrentMonth);
+      onGoToCurrentMonth(goToCurrentMonth)
     }
-  }, [goToCurrentMonth, onGoToCurrentMonth]);
+  }, [goToCurrentMonth, onGoToCurrentMonth])
 
   const handleReachBeginning = useCallback(() => {
     if (swiper.current?.activeIndex === 1) {
-      const prevYearCalendar = [];
+      const prevYearCalendar = []
 
       // Thêm năm trước vào đầu
       for (let month = 1; month < 13; month++) {
-        prevYearCalendar.push(generateCalendarForMonth(prevYearGenerated, month));
+        prevYearCalendar.push(generateCalendarForMonth(prevYearGenerated, month))
       }
 
-      setCalendarData([...prevYearCalendar, ...calendarData]);
+      setCalendarData([...prevYearCalendar, ...calendarData])
       setPrevYearGenerated(prevYearGenerated - 1)
 
       requestAnimationFrame(() => {
-        swiper.current.slideTo(12, 0, false); // Di chuyển đến slide tương ứng với tháng hiện tại
-      });
+        swiper.current.slideTo(12, 0, false) // Di chuyển đến slide tương ứng với tháng hiện tại
+      })
     }
-  }, [generateCalendarForMonth, prevYearGenerated, calendarData]);
+  }, [generateCalendarForMonth, prevYearGenerated, calendarData])
 
   const handleReachEnd = useCallback(() => {
-    const totalSlides = calendarData.length;
+    const totalSlides = calendarData.length
     if (swiper.current?.activeIndex === totalSlides - 2) {
-      const nextYearCalendar = [];
+      const nextYearCalendar = []
 
       // Thêm năm mới vào cuối
       for (let month = 1; month < 13; month++) {
-        nextYearCalendar.push(generateCalendarForMonth(nextYearGenerated, month));
+        nextYearCalendar.push(generateCalendarForMonth(nextYearGenerated, month))
       }
 
-      setCalendarData([...calendarData, ...nextYearCalendar]);
+      setCalendarData([...calendarData, ...nextYearCalendar])
       setNextYearGenerated(nextYearGenerated + 1)
     }
-  }, [generateCalendarForMonth, nextYearGenerated, calendarData]);
+  }, [generateCalendarForMonth, nextYearGenerated, calendarData])
 
-  if (!data || data.length === 0) return null;
+  if (!data || data.length === 0) return null
 
   // Render calendar table cho một tháng
   const renderCalendarTable = () => {
@@ -202,8 +202,8 @@ const ScheduleView = ({ data, onGoToCurrentMonth }) => {
                               <td
                                 key={dayIndex}
                                 className={`calendar-day text-center p-3 position-relative ${!day.isCurrentMonth ? 'text-muted' : ''
-                                  } ${day.isToday ? 'bg-warning bg-opacity-50 calendar-today' : ''} ${day.hasSchedule ? 'calendar-day-has-schedule' : ''
-                                  } ${day.isSelectedDate ? 'calendar-day-selected' : ''}`}
+                                } ${day.isToday ? 'bg-warning bg-opacity-50 calendar-today' : ''} ${day.hasSchedule ? 'calendar-day-has-schedule' : ''
+                                } ${day.isSelectedDate ? 'calendar-day-selected' : ''}`}
                                 style={{
                                   cursor: day.hasSchedule ? 'pointer' : 'default',
                                   borderRadius: '15px',
@@ -211,13 +211,13 @@ const ScheduleView = ({ data, onGoToCurrentMonth }) => {
                                   borderRight: '1px solid rgba(185, 185, 185, 1)',
                                   borderBottom: '1px solid #adadadff',
                                   backgroundColor: day.isSelectedDate ? 'rgb(220, 53, 69)' : '',
-                                  color: day.isSelectedDate ? '#fff' : '',
+                                  color: day.isSelectedDate ? '#fff' : ''
                                 }}
                                 onClick={() => handleDateClick(day)}
                               >
                                 <div className="fw-bold">{day.dayNumber}</div>
                                 {day.hasSchedule && (
-                                  <div className="position-absolute schedule-indicator" style={{ top: "-5px", right: "10px" }}>
+                                  <div className="position-absolute schedule-indicator" style={{ top: '-5px', right: '10px' }}>
                                     <div
                                       className="bg-danger rounded-circle"
                                       style={{ width: '8px', height: '8px', marginTop: '15px' }}
@@ -241,20 +241,20 @@ const ScheduleView = ({ data, onGoToCurrentMonth }) => {
           </SwiperSlide>
         )}
       </>
-    );
-  };
+    )
+  }
 
   return (
     <>
-      <Row className='fade-in-up' style={{ margin: "24px 0 0px", padding: "0" }}>
+      <Row className='fade-in-up' style={{ margin: '24px 0 0px', padding: '0' }}>
         <Col className='p-0 d-flex calendar-wrapper'>
           <Swiper
             resistanceRatio={0.65}
             threshold={10}
             touchStartPreventDefault={false}
-            followFinger={true}         // vuốt theo ngón tay
-            shortSwipes={true}          // vuốt ngắn vẫn nhận
-            longSwipesRatio={0.15}      // tỷ lệ vuốt cần để đổi slide
+            followFinger={true} // vuốt theo ngón tay
+            shortSwipes={true} // vuốt ngắn vẫn nhận
+            longSwipesRatio={0.15} // tỷ lệ vuốt cần để đổi slide
             touchMoveStopPropagation={true}
             passiveListeners={true}
             speed={500}
@@ -305,7 +305,7 @@ const ScheduleView = ({ data, onGoToCurrentMonth }) => {
                   code: item.code,
                   teacher: item.teacher,
                   sessions: []
-                };
+                }
               }
               groups[item.subjectKey].sessions.push({
                 room: item.room,
@@ -313,8 +313,8 @@ const ScheduleView = ({ data, onGoToCurrentMonth }) => {
                 dayOfWeek: item.dayOfWeek,
                 dayOfWeekNumber: item.dayOfWeekNumber,
                 timeRange: item.timeRange
-              });
-              return groups;
+              })
+              return groups
             }, {})
           ).map((groupedItem, index) => (
             <Card key={index} className="mb-0">
@@ -348,7 +348,7 @@ const ScheduleView = ({ data, onGoToCurrentMonth }) => {
         </div>
       )}
     </>
-  );
-};
-export default ScheduleView;
+  )
+}
+export default ScheduleView
 

@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.jsx'
+import './assets/index.css'
+import App from './pages/App'
 import { SplashScreen } from '@capacitor/splash-screen'
 
 SplashScreen.show({
