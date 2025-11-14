@@ -13,12 +13,21 @@ export default function ExcelReader({ onDataLoaded }) {
   const [showFileSection, setShowFileSection] = useState(true)
   const [isRestoredData, setIsRestoredData] = useState(false)
 
+  // State cho bảng điểm
+  const [gradeData, setGradeData] = useState([])
+  const [gradeFileName, setGradeFileName] = useState('')
+  const [gradeLoading, setGradeLoading] = useState(false)
+  const [gradeError, setGradeError] = useState('')
+  const [showGradeSection, setShowGradeSection] = useState(true)
+  const [isRestoredGradeData, setIsRestoredGradeData] = useState(false)
+
   // Sử dụng ref để tránh dependency hell
   const onDataLoadedRef = useRef(onDataLoaded)
   onDataLoadedRef.current = onDataLoaded
 
   // Khóa lưu trữ trong localStorage
   const STORAGE_KEY = 'scheduleData'
+  const GRADE_STORAGE_KEY = 'gradeData'
 
   // Lưu dữ liệu vào localStorage
   const saveToLocalStorage = (scheduleData, filename) => {
@@ -81,10 +90,61 @@ export default function ExcelReader({ onDataLoaded }) {
     return null
   }
 
+  // Lưu dữ liệu bảng điểm vào localStorage
+  const saveGradeToLocalStorage = useCallback((gradeDataToSave, filename) => {
+    try {
+      const dataToSave = {
+        data: gradeDataToSave,
+        fileName: filename,
+        uploadDate: new Date().toISOString()
+      }
+      localStorage.setItem(GRADE_STORAGE_KEY, JSON.stringify(dataToSave))
+      console.log('Đã lưu bảng điểm vào localStorage')
+    } catch (error) {
+      console.error('Lỗi khi lưu bảng điểm:', error)
+    }
+  }, [])
+
+  // Khôi phục dữ liệu bảng điểm từ localStorage
+  const loadGradeFromLocalStorage = useCallback(() => {
+    try {
+      const savedData = localStorage.getItem(GRADE_STORAGE_KEY)
+      if (savedData) {
+        const parsedData = JSON.parse(savedData)
+        const loadedData = parsedData.data || []
+        setGradeData(loadedData)
+        setGradeFileName(parsedData.fileName || '')
+        setIsRestoredGradeData(true)
+        return true
+      }
+    } catch (error) {
+      console.error('Lỗi khi khôi phục bảng điểm:', error)
+    }
+    return false
+  }, [])
+
+  // Lấy thông tin thời gian lưu bảng điểm
+  const getSavedGradeDataInfo = useCallback(() => {
+    try {
+      const savedData = localStorage.getItem(GRADE_STORAGE_KEY)
+      if (savedData) {
+        const parsedData = JSON.parse(savedData)
+        if (parsedData.uploadDate) {
+          const uploadDate = new Date(parsedData.uploadDate)
+          return uploadDate.toLocaleString('vi-VN')
+        }
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy thông tin thời gian bảng điểm:', error)
+    }
+    return null
+  }, [])
+
   // Khôi phục dữ liệu khi component mount
   useEffect(() => {
     loadFromLocalStorage()
-  }, [loadFromLocalStorage])
+    loadGradeFromLocalStorage()
+  }, [loadFromLocalStorage, loadGradeFromLocalStorage])
 
 
   const handleFileUpload = (event) => {
@@ -155,6 +215,88 @@ export default function ExcelReader({ onDataLoaded }) {
     reader.onerror = () => {
       setError('Không thể đọc file. Vui lòng thử lại.')
       setLoading(false)
+    }
+  }
+
+  // Xử lý upload file bảng điểm
+  const handleGradeFileUpload = (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    setGradeLoading(true)
+    setGradeError('')
+    setGradeFileName(file.name)
+    setIsRestoredGradeData(false)
+
+    const reader = new FileReader()
+    reader.readAsBinaryString(file)
+
+    reader.onload = (e) => {
+      try {
+        const binaryStr = e.target.result
+        const workbook = XLSX.read(binaryStr, { type: 'binary' })
+        const sheetName = workbook.SheetNames[0]
+        const sheet = workbook.Sheets[sheetName]
+
+        // Parse Excel data - bắt đầu từ hàng 1 (sau header)
+        const jsonData = XLSX.utils.sheet_to_json(sheet, {
+          range: 0, // Bắt đầu từ hàng 0
+          defval: ''
+        })
+
+        console.log('Raw Grade data:', jsonData)
+
+        if (!Array.isArray(jsonData) || jsonData.length === 0) {
+          throw new Error('Không tìm thấy dữ liệu trong file Excel bảng điểm')
+        }
+
+        // Validate cấu trúc bảng điểm
+        const requiredColumns = ['STT', 'Tên môn học', 'TP1', 'TP2', 'THI', 'TKHP', 'Điểm chữ', 'Tín chỉ', 'Điểm hệ 4']
+        const firstRow = jsonData[0]
+        const missingColumns = requiredColumns.filter(col => !(col in firstRow))
+
+        if (missingColumns.length > 0) {
+          throw new Error(`Thiếu các cột: ${missingColumns.join(', ')}`)
+        }
+
+        // Xử lý và format dữ liệu
+        const processedGradeData = jsonData.map((row, index) => ({
+          stt: row['STT'] || index + 1,
+          tenMonHoc: row['Tên môn học'] || '',
+          tp1: row['TP1'] || '',
+          tp2: row['TP2'] || '',
+          thi: row['THI'] || '',
+          tkhp: row['TKHP'] || '',
+          diemChu: row['Điểm chữ'] || '',
+          tinChi: row['Tín chỉ'] || '',
+          diemHe4: row['Điểm hệ 4'] || ''
+        }))
+
+        console.log('Processed Grade data:', processedGradeData)
+
+        // Cập nhật state và lưu vào localStorage
+        setGradeData(processedGradeData)
+        saveGradeToLocalStorage(processedGradeData, file.name)
+        setGradeLoading(false)
+
+      } catch (error) {
+        console.error('Error processing grade file:', error)
+        let errorMessage = 'Có lỗi khi xử lý file Excel bảng điểm.'
+
+        if (error.message.includes('Không tìm thấy dữ liệu')) {
+          errorMessage = 'File không chứa dữ liệu bảng điểm hợp lệ.'
+        } else if (error.message.includes('Thiếu các cột')) {
+          errorMessage = error.message
+        }
+
+        setGradeError(errorMessage)
+        setGradeLoading(false)
+      }
+    }
+
+    reader.onerror = () => {
+      setGradeError('Không thể đọc file. Vui lòng thử lại.')
+      setGradeLoading(false)
     }
   }
 
@@ -253,6 +395,92 @@ export default function ExcelReader({ onDataLoaded }) {
           </Card>
         </Col>
       </Row>
+      <br />
+
+      {/* Section Bảng Điểm */}
+      <Row>
+        <Col>
+          <Card>
+            <Card.Header className="w-100 bg-success text-white" style={{ minWidth: '313px' }}>
+              <div className="w-100 d-flex justify-content-between align-items-center">
+                <h3 className="mb-0">
+                  <span className="d-none d-sm-inline">📊 Quản Lý Bảng Điểm</span>
+                  <span className="d-sm-none">📊 Bảng Điểm</span>
+                </h3>
+                <Button
+                  style={{ backgroundColor: 'transparent', border: 'none', color: 'white' }}
+                  size="sm"
+                  onClick={() => setShowGradeSection(!showGradeSection)}
+                >
+                  {showGradeSection ? <i className="bi bi-chevron-up"></i> : <i className="bi bi-chevron-down"></i>}
+                </Button>
+              </div>
+            </Card.Header>
+            {showGradeSection && (
+              <Card.Body>
+                <Form>
+                  <Form.Group className="mb-3">
+                    <Form.Label>
+                      <strong>📁 Chọn file Excel bảng điểm:</strong>
+                    </Form.Label>
+                    <Form.Control
+                      type="file"
+                      accept=".xlsx, .xls"
+                      onChange={handleGradeFileUpload}
+                      disabled={gradeLoading}
+                    />
+                    <Form.Text className="text-muted">
+                      Hỗ trợ định dạng: .xlsx, .xls
+                    </Form.Text> <br />
+                    <Form.Text className="text-muted">
+                      Lưu ý: File cần có các cột: STT, Tên môn học, TP1, TP2, THI, TKHP, Điểm chữ, Tín chỉ, Điểm hệ 4
+                    </Form.Text>
+                  </Form.Group>
+
+                  {isRestoredGradeData && gradeData.length > 0 && (
+                    <Alert variant="primary">
+                      <div className="d-flex align-items-center justify-content-between flex-wrap">
+                        <div className="flex-grow-1">
+                          <strong>💾 Dữ liệu đã khôi phục:</strong> Đã tải lại bảng điểm từ lần truy cập trước
+                          {getSavedGradeDataInfo() && (
+                            <small className="d-block text-muted mt-1">
+                              Lưu lúc: {getSavedGradeDataInfo()}
+                            </small>
+                          )}
+                        </div>
+                      </div>
+                    </Alert>
+                  )}
+
+                  {gradeFileName && !isRestoredGradeData && (
+                    <Alert variant="info">
+                      <strong>File đã chọn:</strong> {gradeFileName}
+                    </Alert>
+                  )}
+
+                  {gradeLoading && (
+                    <Alert variant="warning">
+                      <div className="d-flex align-items-center">
+                        <div className="spinner-border spinner-border-sm me-2" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                        Đang xử lý file bảng điểm...
+                      </div>
+                    </Alert>
+                  )}
+
+                  {gradeError && (
+                    <Alert variant="danger">
+                      <strong>Lỗi:</strong> {gradeError}
+                    </Alert>
+                  )}
+                </Form>
+              </Card.Body>
+            )}
+          </Card>
+        </Col>
+      </Row>
+      <br />
     </Container>
   )
 }

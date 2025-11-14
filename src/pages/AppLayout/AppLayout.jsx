@@ -1,15 +1,17 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
+import { Button } from 'react-bootstrap'
 import NavBar from '~/components/NavBar'
 import ExcelReader from './ExcelReader/ExcelReader'
 import ScheduleView from './ScheduleView/ScheduleView'
 import ExportCSV from './ExportCSV/ExportCSV'
+import GradeView from './GradeView/GradeView'
 import getScheduleData from '~/utils/getScheduleData'
 import Setting from './Setting/Setting'
 import ToastCustom from './Toast/ToastCustom'
 
 const AppLayout = () => {
   const [show, setShow] = useState(false)
-  const [activeSection, setActiveSection] = useState('home') // home, schedule, settings
+  const [activeSection, setActiveSection] = useState('home') // home, schedule, grades, settings, exportcsv
   const [scheduleData, setScheduleData] = useState(null)
   const [hasInitialized, setHasInitialized] = useState(false)
   const [showSuccessToast, setShowSuccessToast] = useState(false)
@@ -118,6 +120,8 @@ const AppLayout = () => {
           </Button>
         </div>
       )
+    case 'grades':
+      return <GradeView />
     case 'settings':
       return <Setting setScheduleData={setScheduleData} setActiveSection={setActiveSection} />
     case 'exportcsv':

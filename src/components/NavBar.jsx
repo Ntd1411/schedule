@@ -61,12 +61,24 @@ function NavBar({ handleShow, handleCalendarButtonClick, show, handleClose, hand
                 </div>
               </div>
             </Nav.Link>
+
+            <Nav.Link
+              className={`p-3 border-bottom ${activeSection === 'grades' ? 'bg-primary text-white' : ''}`}
+              onClick={() => handleSectionChange('grades')}
+              style={{ cursor: 'pointer' }}
+            >
+              <i className="bi bi-bar-chart me-2"></i>
+              Xem điểm
+              <small className="d-block text-muted">Bảng điểm và tính GPA</small>
+            </Nav.Link>
+
             <Nav.Link
               className={`p-3 border-bottom ${activeSection === 'exportcsv' ? 'bg-primary text-white' : ''}`}
               onClick={() => handleSectionChange('exportcsv')}
               style={{ cursor: 'pointer' }}
             >
-              <i className="bi bi-filetype-csv"></i>  Xuất file csv
+              <i className="bi bi-filetype-csv me-2"></i>
+              Xuất file csv
               <small className="d-block text-muted">Tải về file csv</small>
             </Nav.Link>
 
